@@ -21,10 +21,9 @@ final class ConferenceController extends AbstractController
         ]);
     }
 
-    #[Route('/conference/{id}', name: 'conference')]
+    #[Route('/conference/{slug}', name: 'conference')]
     public function show(
         Conference $conference,
-        ConferenceRepository $conferenceRepository,
         CommentRepository $commentRepository,
         #[MapQueryParameter(options: ['min_range' => 0])]
         int $offset = 0,

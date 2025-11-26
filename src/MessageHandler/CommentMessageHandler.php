@@ -11,6 +11,9 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Workflow\WorkflowInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Bridge\Twig\Mime\NotificationEmail;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Mailer\MailerInterface;
 
 #[AsMessageHandler]
 class CommentMessageHandler
@@ -23,6 +26,9 @@ class CommentMessageHandler
         private WorkflowInterface $workflow,
         private MessageBusInterface $bus,
         private LoggerInterface $logger,
+        private MailerInterface $mailer,
+        #[Autowire('%admin_email%')]
+        private string $adminEmail,
     ) {
     }
 
@@ -44,8 +50,13 @@ class CommentMessageHandler
             $this->entityManager->flush();
             $this->bus->dispatch($message);
         } elseif ($this->workflow->can($comment, 'publish') || $this->workflow->can($comment, 'publish_ham')) {
-            $this->workflow->apply($comment, $this->workflow->can($comment, 'publish') ? 'publish' : 'publish_ham');
-            $this->entityManager->flush();
+            $this->mailer->send((new NotificationEmail())
+                ->subject('New comment posted')
+                ->htmlTemplate('emails/comment_notification.html.twig')
+                ->from($this->adminEmail)
+                ->to($this->adminEmail)
+                ->context(['comment' => $comment])
+            );
         } elseif ($this->logger) {
             $this->logger->debug('Dropping comment message', ['comment' => $comment->getId(), 'state' => $comment->getState()]);
         }
